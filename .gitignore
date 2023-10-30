@@ -1,52 +1,163 @@
-# Prerequisites
-*.d
+#include <Servo.h>
+#include <Adafruit_LiquidCrystal.h>
+#include <math.h>
+// Declare/assign Arduino IO-pins
+Adafruit_LiquidCrystal lcd(0);
+int button = 4; 
+int ledr = 3; 
+int ledg = 2;
+float temp ;
+float light ;
+float temperature_Celsius;
+int EnicPin=6; 
 
-# Object files
-*.o
-*.ko
-*.obj
-*.elf
+float En;
+int fanSpeed=0; 
+int button_value ;
+Servo servo;
+int servo_pos = 0;
+unsigned long ms_from_start =0;
+unsigned long ms_previous_read_button  = 0;
 
-# Linker output
-*.ilk
-*.map
-*.exp
 
-# Precompiled Headers
-*.gch
-*.pch
 
-# Libraries
-*.lib
-*.a
-*.la
-*.lo
 
-# Shared objects (inc. Windows DLLs)
-*.dll
-*.so
-*.so.*
-*.dylib
 
-# Executables
-*.exe
-*.out
-*.app
-*.i*86
-*.x86_64
-*.hex
 
-# Debug files
-*.dSYM/
-*.su
-*.idb
-*.pdb
 
-# Kernel Module Compile Results
-*.mod*
-*.cmd
-.tmp_versions/
-modules.order
-Module.symvers
-Mkfile.old
-dkms.conf
+
+void setup() 
+{
+  Serial.begin(9600);
+  lcd.begin(16, 2);
+  pinMode(ledr, OUTPUT); 
+  pinMode(ledg, OUTPUT);
+  pinMode(button, INPUT); 
+  pinMode(A0, INPUT);
+  pinMode(A1, INPUT);
+  servo.attach(5);
+  pinMode(EnicPin,OUTPUT);
+
+}
+
+void loop() {
+  ms_from_start  = millis();
+
+  if (ms_from_start - ms_previous_read_button>1)
+  {ms_previous_read_button=ms_from_start;
+
+   button_value=digitalRead(button);
+   Serial.println(button_value);
+   if (button_value==0  )
+   {
+     push_the_button();
+   }
+   else {
+     automation_on();
+     while (button_value ==1 )
+     {ms_from_start  = millis();
+      if (ms_from_start - ms_previous_read_button>1)
+      {
+        //Αναγνωση τιμων απο το arduino
+        temp=analogRead(A0);
+        light=analogRead(A1);
+        button_value=digitalRead(button);
+        ms_previous_read_button=ms_from_start;
+      }
+
+      values();
+      fan();
+      sunsheild();
+      if (button_value==0)
+      {
+        automation_off();
+      }
+     }
+   }
+  }
+}
+//λειτουργία button 
+void push_the_button(){
+  lcd.setCursor(0,0);
+  lcd.print(" Push the button");
+  lcd.setCursor(0,1);
+  lcd.print("for start");
+  digitalWrite(ledr,LOW);
+  digitalWrite(ledg,LOW);
+  servo.write(90);
+  analogWrite(EnicPin, 0);
+}
+//Μήνυμα automation off
+void automation_off(){
+  lcd.clear()  ;
+  digitalWrite(ledr,LOW);
+  digitalWrite(ledg,LOW);
+  servo.write(90);
+  analogWrite(EnicPin, 0);
+  analogWrite(EnicPin, 0);
+  lcd.setCursor(0,0);
+  lcd.print(" Automation");
+  lcd.setCursor(0,1);
+  lcd.print("OFF");
+  delay(3000);
+  lcd.clear()  ;
+}
+//Προβολή τιμών σε LCD
+void values(){
+  temperature_Celsius = ((temp*(5.0/1024)-0.5)*100);
+  En=pow(10,7.2)/pow(light,1.5);
+  lcd.setCursor(0,0);
+  lcd.print("temp= ");
+  lcd.setCursor(5,0);
+  lcd.print(temperature_Celsius,1);
+  lcd.setCursor(10,0);
+  lcd.print(char(178));
+  lcd.setCursor(11,0);
+  lcd.print("C");
+  lcd.setCursor(0,1);
+  lcd.print("Light=");lcd.print(En,1);lcd.print("Lux");
+}
+//Μήνυμα automation on
+void automation_on(){
+  while (true){
+    lcd.clear()  ;
+    break;}
+  lcd.setCursor(0,0);
+  lcd.print(" Automation");
+  lcd.setCursor(0,1);
+  lcd.print("ON");
+  delay(3000);
+  lcd.clear()  ;
+}
+//Λειτουργια ανεμιστήρα
+void fan(){
+  if (temperature_Celsius<20)
+  {
+
+    digitalWrite(ledr , LOW);
+    analogWrite(EnicPin, LOW);
+
+
+
+  }
+  else 
+  {
+    fanSpeed=map(temperature_Celsius,20,40,32,255);
+    analogWrite(EnicPin, fanSpeed);
+    digitalWrite(ledr , HIGH);
+
+  }
+}
+//Λειτουργία σκίαστρου
+void sunsheild(){
+
+  float lux=map(En, 0,1080,180,0);
+  if (En>887.5){
+    servo.write(0);
+    digitalWrite(ledg , LOW);}
+  else
+  {
+    servo.write(lux);
+    digitalWrite(ledg , HIGH);
+  }
+}
